@@ -39,7 +39,8 @@
     "jspdf-autotable": "^3.8.3",
     "sonner": "^1.5.0",
     "framer-motion": "^11.3.8",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "@types/node": "^20",

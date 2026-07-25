@@ -1,43 +1,36 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-const schema = z.object({
-  email:    z.string().email('Email inválido'),
-  password: z.string().min(6, 'Mínimo 6 caracteres'),
-})
-
-type FormData = z.infer<typeof schema>
-
 export default function LoginPage() {
-  const router  = useRouter()
   const supabase = createClient()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) })
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
 
-  async function onSubmit(data: FormData) {
-    setServerError(null)
-    const { error } = await supabase.auth.signInWithPassword({
-      email:    data.email,
-      password: data.password,
-    })
-    if (error) {
-      setServerError('Email o contraseña incorrectos.')
+    if (!email || !password) {
+      setError('Ingresá tu email y contraseña.')
       return
     }
-  window.location.href = '/dashboard'
+
+    setLoading(true)
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    setLoading(false)
+
+    if (authError) {
+      setError('Email o contraseña incorrectos.')
+      return
+    }
+
+    window.location.href = '/dashboard'
   }
 
   return (
@@ -61,9 +54,8 @@ export default function LoginPage() {
             Iniciar sesión
           </h2>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* Email */}
             <div>
               <label className="form-label" htmlFor="email">Email</label>
               <input
@@ -72,12 +64,11 @@ export default function LoginPage() {
                 autoComplete="email"
                 placeholder="nombre@bydsimone.com.ar"
                 className="form-input"
-                {...register('email')}
+                value={email}
+                onChange={e => setEmail(e.target.value)}
               />
-              {errors.email && <p className="form-error">{errors.email.message}</p>}
             </div>
 
-            {/* Password */}
             <div>
               <label className="form-label" htmlFor="password">Contraseña</label>
               <div className="relative">
@@ -87,7 +78,8 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   placeholder="••••••••"
                   className="form-input pr-10"
-                  {...register('password')}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
                 />
                 <button
                   type="button"
@@ -98,37 +90,24 @@ export default function LoginPage() {
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {errors.password && <p className="form-error">{errors.password.message}</p>}
             </div>
 
-            {/* Error del servidor */}
-            {serverError && (
-              <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {serverError}
+            {error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px', color: '#b91c1c', fontSize: '14px' }}>
+                {error}
               </div>
             )}
 
-            {/* Submit */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={loading}
               className="btn-primary w-full justify-center py-2.5"
             >
-              {isSubmitting
+              {loading
                 ? <><Loader2 size={16} className="animate-spin" /> Ingresando...</>
                 : 'Ingresar'}
             </button>
           </form>
-
-          {/* Forgot password */}
-          <div className="mt-4 text-center">
-            <a
-              href="/reset-password"
-              className="text-sm text-brand-600 hover:text-brand-700 hover:underline"
-            >
-              ¿Olvidaste tu contraseña?
-            </a>
-          </div>
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">

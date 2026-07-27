@@ -24,7 +24,7 @@ export default function DashboardPage() {
     async function fetchAll() {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) { setLoading(false); return }
 
       const userId = session.user.id
 
@@ -33,7 +33,7 @@ export default function DashboardPage() {
         .select('*, area:areas(id,name,color)')
         .eq('id', userId)
         .single()
-      if (!prof) return
+      if (!prof) { setLoading(false); return }
       setProfile(prof)
 
       const isLeaderAbove = ['hr_admin', 'manager', 'leader'].includes(prof.role)
@@ -77,7 +77,7 @@ export default function DashboardPage() {
       setLoading(false)
     }
 
-    fetchAll()
+    fetchAll().catch(() => setLoading(false))
   }, [])
 
   if (loading || !profile) {

@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { useAppContext } from '@/lib/context/AppContext'
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateTime } from '@/lib/utils/dates'
 
@@ -159,6 +160,7 @@ interface DocumentModalProps {
 
 function DocumentModal({ open, document, onClose, onSaved }: DocumentModalProps) {
   const supabase = createClient()
+  const { userId } = useAppContext()
   const [isPending, startTransition] = useTransition()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -217,8 +219,8 @@ function DocumentModal({ open, document, onClose, onSaved }: DocumentModalProps)
   } | null> => {
     const path = `policies/${category}/${docId}/${file.name}`
     const { error } = await supabase.storage
-      .from('policies')
-      .upload(path, file, { upsert: true })
+      .from('policy-documents')
+      .upload(path, file, { upsert: true, contentType: file.type })
     if (error) {
       toast.error(`Error al subir archivo: ${error.message}`)
       return null
@@ -233,10 +235,6 @@ function DocumentModal({ open, document, onClose, onSaved }: DocumentModalProps)
 
   const onSubmit = (values: DocumentFormValues) => {
     startTransition(async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
       if (isEdit && document) {
         // Update existing
         const updatePayload: Partial<PolicyDocument> = {
@@ -245,7 +243,7 @@ function DocumentModal({ open, document, onClose, onSaved }: DocumentModalProps)
           category: values.category,
           version: values.version,
           is_mandatory: values.is_mandatory,
-          updated_by: user?.id ?? null,
+          updated_by: userId,
           updated_at: new Date().toISOString(),
         }
 
@@ -280,8 +278,8 @@ function DocumentModal({ open, document, onClose, onSaved }: DocumentModalProps)
             is_mandatory: values.is_mandatory,
             is_active: true,
             published_at: null,
-            created_by: user?.id ?? null,
-            updated_by: user?.id ?? null,
+            created_by: userId,
+            updated_by: userId,
           })
           .select()
           .single()
@@ -298,7 +296,7 @@ function DocumentModal({ open, document, onClose, onSaved }: DocumentModalProps)
           if (fileData) {
             const { data: withFile, error: updateError } = await supabase
               .from('policy_documents')
-              .update({ ...fileData, updated_by: user?.id ?? null })
+              .update({ ...fileData, updated_by: userId })
               .eq('id', newDoc.id)
               .select()
               .single()

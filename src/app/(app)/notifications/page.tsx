@@ -1,37 +1,51 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useAppContext } from '@/lib/context/AppContext'
+import { createClient } from '@/lib/supabase/client'
 import NotificationsClientPage from './NotificationsClientPage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Notification {
   id: string
-  user_id: string
+  recipient_id: string
   type: string
   title: string
-  message: string | null
-  is_read: boolean
+  body: string | null
+  read_at: string | null
   link: string | null
   created_at: string
 }
 
-// ─── Server Component ─────────────────────────────────────────────────────────
+// ─── Client Component ─────────────────────────────────────────────────────────
 
-export default async function NotificationsPage() {
-  const supabase = await createClient()
+export default function NotificationsPage() {
+  const { profile, userId } = useAppContext()
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  useEffect(() => {
+    if (!userId || !profile) return
 
-  if (!user) redirect('/login')
+    const fetchData = async () => {
+      const supabase = createClient()
 
-  const { data: notifications } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(100)
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100)
 
-  return <NotificationsClientPage initialNotifications={(notifications ?? []) as Notification[]} />
+      setNotifications((data ?? []) as Notification[])
+      setLoading(false)
+    }
+
+    fetchData()
+  }, [userId, profile])
+
+  if (loading || !profile || !userId) return null
+
+  return <NotificationsClientPage initialNotifications={notifications} />
 }

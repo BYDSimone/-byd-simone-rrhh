@@ -1,88 +1,108 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
-  Users, Clock, Palmtree, Stethoscope, Gift,
-  TrendingUp, AlertCircle, CheckCircle2, Timer
+  Users, Palmtree, Stethoscope,
+  AlertCircle, CheckCircle2,
 } from 'lucide-react'
 import { formatDate, formatHours, isBirthdayToday, isBirthdayTomorrow } from '@/lib/utils/dates'
 import { SUCURSAL_LABELS } from '@/lib/types'
 import type { TodayAbsence, UpcomingBirthday } from '@/lib/types'
 
-export const metadata = { title: 'Dashboard' }
-export const dynamic = 'force-dynamic'
+export default function DashboardPage() {
+  const [profile, setProfile]                   = useState<any>(null)
+  const [todayAbsences, setTodayAbsences]       = useState<any[]>([])
+  const [pendingRequests, setPendingRequests]   = useState<any[]>([])
+  const [myBalance, setMyBalance]               = useState<any[]>([])
+  const [myOvertimeBalance, setMyOvertimeBalance] = useState<any>(null)
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState<any[]>([])
+  const [recentRequests, setRecentRequests]     = useState<any[]>([])
+  const [loading, setLoading]                   = useState(true)
 
-export default async function DashboardPage() {
-  const supabase = createClient()
+  useEffect(() => {
+    async function fetchAll() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+      const userId = session.user.id
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*, area:areas(id,name,color)')
-    .eq('id', user.id)
-    .single()
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('*, area:areas(id,name,color)')
+        .eq('id', userId)
+        .single()
+      if (!prof) return
+      setProfile(prof)
 
-  if (!profile) return null
+      const isLeaderAbove = ['hr_admin', 'manager', 'leader'].includes(prof.role)
+      const isHrOrManager = ['hr_admin', 'manager'].includes(prof.role)
+
+      const [
+        { data: absences },
+        { data: pending },
+        { data: balance },
+        { data: overtime },
+        { data: birthdays },
+        { data: recent },
+      ] = await Promise.all([
+        supabase.from('v_today_absences').select('*'),
+        isLeaderAbove
+          ? supabase.from('requests').select('id').eq('status', 'pending')
+          : supabase.from('requests').select('id').eq('employee_id', userId).eq('status', 'pending'),
+        supabase
+          .from('benefit_balances')
+          .select('*, benefit_type:benefit_types(code,name,color)')
+          .eq('employee_id', userId)
+          .eq('year', new Date().getFullYear()),
+        supabase.from('overtime_balance').select('*').eq('employee_id', userId).single(),
+        isHrOrManager
+          ? supabase.from('v_upcoming_birthdays').select('*').limit(5)
+          : supabase.from('v_upcoming_birthdays').select('*').limit(3),
+        supabase
+          .from('requests')
+          .select('*, benefit_type:benefit_types(name,color,code)')
+          .eq('employee_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(5),
+      ])
+
+      setTodayAbsences(absences ?? [])
+      setPendingRequests(pending ?? [])
+      setMyBalance(balance ?? [])
+      setMyOvertimeBalance(overtime)
+      setUpcomingBirthdays(birthdays ?? [])
+      setRecentRequests(recent ?? [])
+      setLoading(false)
+    }
+
+    fetchAll()
+  }, [])
+
+  if (loading || !profile) {
+    return (
+      <div className="p-6 lg:p-8 space-y-6">
+        {[1,2,3].map(i => (
+          <div key={i} className="h-24 bg-surface-subtle rounded-xl animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
   const isHrOrManager = ['hr_admin', 'manager'].includes(profile.role)
-  const isLeaderAbove  = ['hr_admin', 'manager', 'leader'].includes(profile.role)
-  const today          = new Date().toISOString().split('T')[0]
+  const isLeaderAbove = ['hr_admin', 'manager', 'leader'].includes(profile.role)
+  const today         = new Date().toISOString().split('T')[0]
 
-  // ── Queries paralelas ─────────────────────────────────────
-  const [
-    { data: todayAbsences },
-    { data: pendingRequests },
-    { data: myBalance },
-    { data: myOvertimeBalance },
-    { data: upcomingBirthdays },
-    { data: recentRequests },
-  ] = await Promise.all([
-    // Ausentes hoy
-    supabase.from('v_today_absences').select('*'),
-
-    // Solicitudes pendientes (según rol)
-    isLeaderAbove
-      ? supabase.from('requests').select('id', { count: 'exact', head: false }).eq('status', 'pending')
-      : supabase.from('requests').select('id').eq('employee_id', user.id).eq('status', 'pending'),
-
-    // Saldo propio de Días Libres Simone
-    supabase
-      .from('benefit_balances')
-      .select('*, benefit_type:benefit_types(code,name,color)')
-      .eq('employee_id', user.id)
-      .eq('year', new Date().getFullYear()),
-
-    // Saldo horas extras propio
-    supabase.from('overtime_balance').select('*').eq('employee_id', user.id).single(),
-
-    // Próximos cumpleaños (HR/gerentes ven todos, otros solo su área)
-    isHrOrManager
-      ? supabase.from('v_upcoming_birthdays').select('*').limit(5)
-      : supabase.from('v_upcoming_birthdays').select('*')
-          .limit(3),
-
-    // Últimas solicitudes propias
-    supabase
-      .from('requests')
-      .select('*, benefit_type:benefit_types(name,color,code)')
-      .eq('employee_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5),
-  ])
-
-  const simoneBalance = myBalance?.find(b => (b as any).benefit_type?.code === 'SIMONE_DAY')
-  const vacationBalance = myBalance?.find(b => (b as any).benefit_type?.code === 'VACATION')
-  const onVacation = (todayAbsences as TodayAbsence[] ?? []).filter(a => a.benefit_code === 'VACATION').length
-  const sickToday  = (todayAbsences as TodayAbsence[] ?? []).filter(a => a.benefit_code === 'SICK_LEAVE').length
-  const otherAbsences = (todayAbsences as TodayAbsence[] ?? []).filter(a => !['VACATION','SICK_LEAVE'].includes(a.benefit_code)).length
+  const simoneBalance   = myBalance.find((b: any) => b.benefit_type?.code === 'SIMONE_DAY')
+  const vacationBalance = myBalance.find((b: any) => b.benefit_type?.code === 'VACATION')
+  const onVacation      = todayAbsences.filter((a: any) => a.benefit_code === 'VACATION').length
+  const sickToday       = todayAbsences.filter((a: any) => a.benefit_code === 'SICK_LEAVE').length
 
   function statusBadge(status: string) {
     const map: Record<string, string> = {
-      pending:    'badge-pending',
-      approved:   'badge-approved',
-      rejected:   'badge-rejected',
-      cancelled:  'badge-cancelled',
-      needs_info: 'badge-needs_info',
+      pending: 'badge-pending', approved: 'badge-approved',
+      rejected: 'badge-rejected', cancelled: 'badge-cancelled', needs_info: 'badge-needs_info',
     }
     const labels: Record<string, string> = {
       pending: 'Pendiente', approved: 'Aprobada', rejected: 'Rechazada',
@@ -105,7 +125,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* KPI Cards — Ausencias del día (HR/líderes) */}
+      {/* KPI Cards */}
       {isLeaderAbove && (
         <section className="mb-8">
           <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
@@ -120,11 +140,10 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <div>
-                <p className="text-3xl font-bold tracking-tight">{(todayAbsences ?? []).length}</p>
+                <p className="text-3xl font-bold tracking-tight">{todayAbsences.length}</p>
                 <p className="text-xs text-text-muted mt-0.5">colaboradores</p>
               </div>
             </div>
-
             <div className="stat-card">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-text-muted uppercase tracking-wide">Vacaciones</span>
@@ -137,7 +156,6 @@ export default async function DashboardPage() {
                 <p className="text-xs text-text-muted mt-0.5">de vacaciones</p>
               </div>
             </div>
-
             <div className="stat-card">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-text-muted uppercase tracking-wide">Licencias médicas</span>
@@ -150,7 +168,6 @@ export default async function DashboardPage() {
                 <p className="text-xs text-text-muted mt-0.5">enfermedades</p>
               </div>
             </div>
-
             <div className="stat-card">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-text-muted uppercase tracking-wide">Solicitudes pend.</span>
@@ -159,7 +176,7 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <div>
-                <p className="text-3xl font-bold tracking-tight">{pendingRequests?.length ?? 0}</p>
+                <p className="text-3xl font-bold tracking-tight">{pendingRequests.length}</p>
                 <p className="text-xs text-text-muted mt-0.5">por revisar</p>
               </div>
             </div>
@@ -170,15 +187,11 @@ export default async function DashboardPage() {
       {/* Grid principal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Col izq: Mis saldos + últimas solicitudes */}
         <div className="lg:col-span-2 space-y-6">
-
           {/* Mis saldos */}
           <div className="card p-5">
             <h2 className="text-sm font-semibold text-text-primary mb-4">Mis saldos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-              {/* Días Libres Simone */}
               <div className="rounded-lg border border-border p-4 bg-surface-subtle">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-2 rounded-full bg-brand-600" />
@@ -191,10 +204,8 @@ export default async function DashboardPage() {
                       <span className="text-sm text-text-muted mb-0.5">/ {simoneBalance.total_granted} disponibles</span>
                     </div>
                     <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-brand-600 rounded-full transition-all"
-                        style={{ width: `${(simoneBalance.used / Math.max(simoneBalance.total_granted, 1)) * 100}%` }}
-                      />
+                      <div className="h-full bg-brand-600 rounded-full transition-all"
+                        style={{ width: `${(simoneBalance.used / Math.max(simoneBalance.total_granted, 1)) * 100}%` }} />
                     </div>
                     <div className="flex justify-between text-xs text-text-muted">
                       <span>Utilizados: {simoneBalance.used}</span>
@@ -206,7 +217,6 @@ export default async function DashboardPage() {
                 )}
               </div>
 
-              {/* Vacaciones */}
               <div className="rounded-lg border border-border p-4 bg-surface-subtle">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -219,10 +229,8 @@ export default async function DashboardPage() {
                       <span className="text-sm text-text-muted mb-0.5">/ {vacationBalance.total_granted} días</span>
                     </div>
                     <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all"
-                        style={{ width: `${(vacationBalance.used / Math.max(vacationBalance.total_granted, 1)) * 100}%` }}
-                      />
+                      <div className="h-full bg-emerald-500 rounded-full transition-all"
+                        style={{ width: `${(vacationBalance.used / Math.max(vacationBalance.total_granted, 1)) * 100}%` }} />
                     </div>
                     <div className="flex justify-between text-xs text-text-muted">
                       <span>Tomados: {vacationBalance.used}</span>
@@ -234,7 +242,6 @@ export default async function DashboardPage() {
                 )}
               </div>
 
-              {/* Horas extras */}
               <div className="rounded-lg border border-border p-4 bg-surface-subtle sm:col-span-2">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-2 rounded-full bg-amber-500" />
@@ -244,9 +251,9 @@ export default async function DashboardPage() {
                   <div className="grid grid-cols-4 gap-3 text-center">
                     {[
                       { label: 'Acreditadas', value: formatHours(myOvertimeBalance.total_hours), color: 'text-text-primary' },
-                      { label: 'Disponibles',  value: formatHours(myOvertimeBalance.available_hours), color: 'text-emerald-600 font-bold' },
-                      { label: 'Utilizadas',   value: formatHours(myOvertimeBalance.used_hours), color: 'text-text-secondary' },
-                      { label: 'Pendientes',   value: formatHours(myOvertimeBalance.pending_hours), color: 'text-amber-600' },
+                      { label: 'Disponibles', value: formatHours(myOvertimeBalance.available_hours), color: 'text-emerald-600 font-bold' },
+                      { label: 'Utilizadas', value: formatHours(myOvertimeBalance.used_hours), color: 'text-text-secondary' },
+                      { label: 'Pendientes', value: formatHours(myOvertimeBalance.pending_hours), color: 'text-amber-600' },
                     ].map(item => (
                       <div key={item.label}>
                         <p className={`text-lg font-bold ${item.color}`}>{item.value}</p>
@@ -259,14 +266,9 @@ export default async function DashboardPage() {
                 )}
               </div>
             </div>
-
             <div className="flex gap-2 mt-4">
-              <a href="/requests/new" className="btn-primary btn-sm flex-1 justify-center">
-                + Nueva solicitud
-              </a>
-              <a href="/overtime/new" className="btn-secondary btn-sm flex-1 justify-center">
-                + Registrar horas
-              </a>
+              <a href="/requests/new" className="btn-primary btn-sm flex-1 justify-center">+ Nueva solicitud</a>
+              <a href="/overtime/new" className="btn-secondary btn-sm flex-1 justify-center">+ Registrar horas</a>
             </div>
           </div>
 
@@ -276,26 +278,22 @@ export default async function DashboardPage() {
               <h2 className="text-sm font-semibold">Mis solicitudes recientes</h2>
               <a href="/requests" className="text-xs text-brand-600 hover:underline">Ver todas</a>
             </div>
-            {(recentRequests ?? []).length === 0 ? (
+            {recentRequests.length === 0 ? (
               <div className="empty-state py-10">
                 <CheckCircle2 size={32} className="text-border-strong" />
                 <p className="text-sm">No tenés solicitudes aún.</p>
               </div>
             ) : (
               <ul className="divide-y divide-border">
-                {(recentRequests ?? []).map((req: any) => {
+                {recentRequests.map((req: any) => {
                   const { cls, label } = statusBadge(req.status)
                   return (
                     <li key={req.id}>
                       <a href={`/requests/${req.id}`} className="flex items-center gap-4 px-5 py-3.5 hover:bg-surface-subtle transition-colors">
-                        <div
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: req.benefit_type?.color ?? '#94A3B8' }}
-                        />
+                        <div className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: req.benefit_type?.color ?? '#94A3B8' }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-text-primary truncate">
-                            {req.benefit_type?.name}
-                          </p>
+                          <p className="text-sm font-medium text-text-primary truncate">{req.benefit_type?.name}</p>
                           <p className="text-xs text-text-muted">
                             {formatDate(req.start_date)}
                             {req.start_date !== req.end_date && ` → ${formatDate(req.end_date)}`}
@@ -311,18 +309,16 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Col der: Ausentes hoy + Cumpleaños */}
+        {/* Col der */}
         <div className="space-y-6">
-
-          {/* Ausentes hoy (detalle) */}
-          {isLeaderAbove && (todayAbsences ?? []).length > 0 && (
+          {isLeaderAbove && todayAbsences.length > 0 && (
             <div className="card overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h2 className="text-sm font-semibold">Ausentes hoy</h2>
                 <a href="/calendar" className="text-xs text-brand-600 hover:underline">Calendario</a>
               </div>
               <ul className="divide-y divide-border">
-                {(todayAbsences as TodayAbsence[] ?? []).slice(0, 8).map(absence => (
+                {(todayAbsences as TodayAbsence[]).slice(0, 8).map(absence => (
                   <li key={absence.request_id} className="flex items-center gap-3 px-5 py-3">
                     <div className="w-7 h-7 rounded-full bg-brand-100 flex-shrink-0 flex items-center justify-center">
                       {absence.avatar_url ? (
@@ -342,24 +338,21 @@ export default async function DashboardPage() {
                     </div>
                   </li>
                 ))}
-                {(todayAbsences ?? []).length > 8 && (
-                  <li className="px-5 py-3 text-xs text-text-muted text-center">
-                    +{(todayAbsences ?? []).length - 8} más
-                  </li>
+                {todayAbsences.length > 8 && (
+                  <li className="px-5 py-3 text-xs text-text-muted text-center">+{todayAbsences.length - 8} más</li>
                 )}
               </ul>
             </div>
           )}
 
-          {/* Próximos cumpleaños */}
-          {(upcomingBirthdays ?? []).length > 0 && (
+          {upcomingBirthdays.length > 0 && (
             <div className="card overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h2 className="text-sm font-semibold">🎂 Próximos cumpleaños</h2>
               </div>
               <ul className="divide-y divide-border">
-                {(upcomingBirthdays as UpcomingBirthday[] ?? []).map(b => {
-                  const isToday = isBirthdayToday(b.next_birthday)
+                {(upcomingBirthdays as UpcomingBirthday[]).map(b => {
+                  const isToday    = isBirthdayToday(b.next_birthday)
                   const isTomorrow = isBirthdayTomorrow(b.next_birthday)
                   return (
                     <li key={b.id} className={`flex items-center gap-3 px-5 py-3 ${isToday ? 'bg-amber-50' : ''}`}>

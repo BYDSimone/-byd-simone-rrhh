@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import {
   Users, Clock, Palmtree, Stethoscope, Gift,
   TrendingUp, AlertCircle, CheckCircle2, Timer
@@ -15,7 +14,7 @@ export default async function DashboardPage() {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return null
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -23,7 +22,7 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/login')
+  if (!profile) return null
 
   const isHrOrManager = ['hr_admin', 'manager'].includes(profile.role)
   const isLeaderAbove  = ['hr_admin', 'manager', 'leader'].includes(profile.role)

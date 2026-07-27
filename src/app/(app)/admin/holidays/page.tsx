@@ -1,5 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAppContext } from '@/lib/context/AppContext'
+import { createClient } from '@/lib/supabase/client'
 import HolidaysClientPage from './HolidaysClientPage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -12,35 +16,40 @@ export interface Holiday {
   year: number
 }
 
-// ─── Server Component ─────────────────────────────────────────────────────────
+// ─── Client Component ─────────────────────────────────────────────────────────
 
-export default async function HolidaysPage() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'hr_admin') redirect('/dashboard')
-
+export default function HolidaysPage() {
+  const { profile } = useAppContext()
+  const router = useRouter()
+  const supabase = createClient()
+  const [holidays, setHolidays] = useState<Holiday[]>([])
+  const [loading, setLoading] = useState(true)
   const currentYear = new Date().getFullYear()
 
-  const { data: holidays } = await supabase
-    .from('holidays')
-    .select('id, date, name, is_national, year')
-    .in('year', [currentYear, currentYear + 1])
-    .order('date', { ascending: true })
+  useEffect(() => {
+    if (!profile) return
+    if (profile.role !== 'hr_admin') {
+      router.push('/dashboard')
+      return
+    }
+    async function load() {
+      const { data } = await supabase
+        .from('holidays')
+        .select('id, date, name, is_national, year')
+        .in('year', [currentYear, currentYear + 1])
+        .order('date', { ascending: true })
+
+      setHolidays((data ?? []) as Holiday[])
+      setLoading(false)
+    }
+    load()
+  }, [profile]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (loading) return null
 
   return (
     <HolidaysClientPage
-      initialHolidays={(holidays ?? []) as Holiday[]}
+      initialHolidays={holidays}
       currentYear={currentYear}
     />
   )

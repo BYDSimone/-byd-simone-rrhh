@@ -1,36 +1,58 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Sidebar } from '@/components/layout/Sidebar'
 import type { Profile } from '@/lib/types'
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
-  const user = session.user
+  useEffect(() => {
+    const supabase = createClient()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+    async function checkAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.replace('/login'); return }
 
-  if (!profile) redirect('/login')
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  const { count: unreadCount } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('recipient_id', user.id)
-    .is('read_at', null)
+      if (!data) { router.replace('/login'); return }
+
+      setProfile(data as Profile)
+      setLoading(false)
+    }
+
+    checkAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) router.replace('/login')
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    )
+  }
+
+  if (!profile) return null
 
   return (
     <div className="min-h-screen">
-      <Sidebar profile={profile as Profile} unreadCount={unreadCount ?? 0} />
-      <main
-        className="min-h-screen"
-        style={{ paddingLeft: 'var(--sidebar-width)' }}
-      >
+      <Sidebar profile={profile} unreadCount={0} />
+      <main className="min-h-screen" style={{ paddingLeft: 'var(--sidebar-width)' }}>
         <div className="md:hidden h-14" />
         {children}
       </main>

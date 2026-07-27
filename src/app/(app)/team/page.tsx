@@ -1,46 +1,50 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useAppContext } from '@/lib/context/AppContext'
+import { createClient } from '@/lib/supabase/client'
 import TeamClientPage from './TeamClientPage'
 
-export const dynamic = 'force-dynamic'
+export default function TeamPage() {
+  const { profile, userId } = useAppContext()
+  const [profiles, setProfiles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default async function TeamPage() {
-  const supabase = createClient()
+  useEffect(() => {
+    if (!userId || !profile) return
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const fetchData = async () => {
+      const supabase = createClient()
 
-  if (!user) redirect('/login')
+      let profilesQuery = supabase
+        .from('profiles')
+        .select(
+          `id, full_name, email, position, role, hire_date, dob, phone, sucursal, area_id, deleted_at,
+           areas(id, name, color)`
+        )
+        .is('deleted_at', null)
+        .order('full_name', { ascending: true })
 
-  const { data: currentProfile } = await supabase
-    .from('profiles')
-    .select('id, role, area_id, full_name')
-    .eq('id', user.id)
-    .single()
+      // Collaborators can only see their own area
+      if (profile.role === 'collaborator') {
+        profilesQuery = profilesQuery.eq('area_id', profile.area_id)
+      }
 
-  if (!currentProfile) redirect('/login')
+      const { data: profilesData } = await profilesQuery
 
-  let profilesQuery = supabase
-    .from('profiles')
-    .select(
-      `id, full_name, email, position, role, hire_date, dob, phone, sucursal, area_id, deleted_at,
-       areas(id, name, color)`
-    )
-    .is('deleted_at', null)
-    .order('full_name', { ascending: true })
+      setProfiles(profilesData ?? [])
+      setLoading(false)
+    }
 
-  // Collaborators can only see their own area
-  if (currentProfile.role === 'collaborator') {
-    profilesQuery = profilesQuery.eq('area_id', currentProfile.area_id)
-  }
+    fetchData()
+  }, [userId, profile])
 
-  const { data: profiles } = await profilesQuery
+  if (loading || !profile || !userId) return null
 
   return (
     <TeamClientPage
-      profiles={profiles ?? []}
-      currentUserRole={currentProfile.role}
+      profiles={profiles}
+      currentUserRole={profile.role}
     />
   )
 }

@@ -52,6 +52,36 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
   const editing  = isEditing(user)
   const [showPass, setShowPass] = useState(false)
 
+  // ── Cambio de contraseña (solo edición) ─────────────────────
+  const [newPassword, setNewPassword] = useState('')
+  const [showNewPass, setShowNewPass] = useState(false)
+  const [changingPass, setChangingPass] = useState(false)
+
+  const handleChangePassword = async () => {
+    if (!user || newPassword.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres')
+      return
+    }
+    setChangingPass(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, password: newPassword }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message ?? 'Error al cambiar contraseña')
+      }
+      toast.success('Contraseña actualizada correctamente')
+      setNewPassword('')
+    } catch (err: any) {
+      toast.error(err.message ?? 'Error al cambiar contraseña')
+    } finally {
+      setChangingPass(false)
+    }
+  }
+
   const schema = editing ? editSchema : createSchema
 
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -320,6 +350,49 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
               {...register('notes')}
             />
           </div>
+
+          {/* Cambio de contraseña (solo edición) */}
+          {editing && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <h3 className="text-xs font-semibold text-amber-800 uppercase tracking-wider">
+                Cambiar contraseña
+              </h3>
+              <p className="text-xs text-amber-700">
+                Usá esto si el colaborador olvidó su contraseña.
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Nueva contraseña (mín. 8 caracteres)"
+                    className="form-input pr-10 w-full"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass((p) => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted"
+                    tabIndex={-1}
+                  >
+                    {showNewPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleChangePassword}
+                  disabled={changingPass || newPassword.length < 8}
+                  className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {changingPass ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    'Actualizar'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Botones */}
           <div className="flex gap-2 justify-end pt-2 border-t border-border">

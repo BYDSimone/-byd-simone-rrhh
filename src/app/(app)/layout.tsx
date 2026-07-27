@@ -32,8 +32,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     checkAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) router.replace('/login')
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') router.replace('/login')
     })
 
     return () => subscription.unsubscribe()

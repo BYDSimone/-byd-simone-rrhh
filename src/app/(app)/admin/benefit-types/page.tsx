@@ -1,5 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAppContext } from '@/lib/context/AppContext'
+import { createClient } from '@/lib/supabase/client'
 import BenefitTypesClientPage from './BenefitTypesClientPage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,29 +22,35 @@ export interface BenefitType {
   created_at: string
 }
 
-// ─── Server Component ─────────────────────────────────────────────────────────
+// ─── Client Component ─────────────────────────────────────────────────────────
 
-export default async function BenefitTypesPage() {
-  const supabase = await createClient()
+export default function BenefitTypesPage() {
+  const { profile } = useAppContext()
+  const router = useRouter()
+  const supabase = createClient()
+  const [benefitTypes, setBenefitTypes] = useState<BenefitType[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    if (!profile) return
+    if (profile.role !== 'hr_admin') {
+      router.push('/dashboard')
+      return
+    }
+    async function load() {
+      const { data } = await supabase
+        .from('benefit_types')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true })
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+      setBenefitTypes((data ?? []) as BenefitType[])
+      setLoading(false)
+    }
+    load()
+  }, [profile]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (profile?.role !== 'hr_admin') redirect('/dashboard')
+  if (loading) return null
 
-  const { data: benefitTypes } = await supabase
-    .from('benefit_types')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true })
-
-  return <BenefitTypesClientPage initialTypes={(benefitTypes ?? []) as BenefitType[]} />
+  return <BenefitTypesClientPage initialTypes={benefitTypes} />
 }

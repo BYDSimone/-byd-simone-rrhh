@@ -136,7 +136,7 @@ function DocumentCard({
     setDownloading(true)
     try {
       const { data, error } = await supabase.storage
-        .from('policies')
+        .from('policy-documents')
         .createSignedUrl(doc.file_path, 300)
 
       if (error || !data?.signedUrl) {

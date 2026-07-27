@@ -1,33 +1,41 @@
-import type { Metadata } from 'next'
-import './globals.css'
-import { Toaster } from 'sonner'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { Sidebar } from '@/components/layout/Sidebar'
+import type { Profile } from '@/lib/types'
 
-export const metadata: Metadata = {
-  title:       { default: 'RRHH · BYD Simone', template: '%s · BYD Simone' },
-  description: 'Plataforma interna de Recursos Humanos',
-  robots:      'noindex, nofollow',
-}
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError || !profile) redirect('/login')
+
+  const { count: unreadCount } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('recipient_id', user.id)
+    .is('read_at', null)
+
   return (
-    <html lang="es" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
-      <body>
+    <div className="min-h-screen">
+      <Sidebar profile={profile as Profile} unreadCount={unreadCount ?? 0} />
+
+      {/* Main content — offset by sidebar width */}
+      <main
+        className="min-h-screen"
+        style={{ paddingLeft: 'var(--sidebar-width)' }}
+      >
+        {/* Mobile top padding (sidebar is drawer on mobile) */}
+        <div className="md:hidden h-14" />
         {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            classNames: {
-              toast:       'font-sans text-sm shadow-card-md border border-border',
-              title:       'font-semibold text-text-primary',
-              description: 'text-text-secondary',
-            },
-          }}
-        />
-      </body>
-    </html>
+      </main>
+    </div>
   )
 }

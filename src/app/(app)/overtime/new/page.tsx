@@ -11,6 +11,7 @@ import { ArrowLeft, Clock, AlertTriangle, Info, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/utils/dates';
 import { createClient } from '@/lib/supabase/client';
+import { useAppContext } from '@/lib/context/AppContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,6 +89,7 @@ function getDayOfWeek(dateStr: string): number | null {
 export default function NewOvertimePage() {
   const router = useRouter();
   const supabase = createClient();
+  const { userId } = useAppContext();
 
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loadingLeaders, setLoadingLeaders] = useState(true);
@@ -128,7 +130,7 @@ export default function NewOvertimePage() {
         .from('profiles')
         .select('id, full_name, role')
         .in('role', ['leader', 'manager', 'hr_admin'])
-        .eq('deleted', false)
+        .is('deleted_at', null)
         .order('full_name');
 
       if (error) {
@@ -190,14 +192,8 @@ export default function NewOvertimePage() {
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error('No autenticado');
-
       const { error } = await supabase.from('overtime_records').insert({
-        employee_id: user.id,
+        employee_id: userId,
         work_date: values.work_date,
         start_time: values.start_time + ':00',
         end_time: values.end_time + ':00',

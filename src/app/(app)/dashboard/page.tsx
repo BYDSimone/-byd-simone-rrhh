@@ -21,13 +21,9 @@ export default function DashboardPage() {
   const [loading, setLoading]                   = useState(true)
 
   useEffect(() => {
-    async function fetchAll() {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setLoading(false); return }
+    const supabase = createClient()
 
-      const userId = session.user.id
-
+    async function loadData(userId: string) {
       const { data: prof } = await supabase
         .from('profiles')
         .select('*, area:areas(id,name,color)')
@@ -77,15 +73,31 @@ export default function DashboardPage() {
       setLoading(false)
     }
 
-    fetchAll().catch(() => setLoading(false))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        loadData(session.user.id).catch(() => setLoading(false))
+      } else {
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  if (loading || !profile) {
+  if (loading) {
     return (
-      <div className="p-6 lg:p-8 space-y-6">
+      <div className="p-6 lg:p-8 space-y-4">
         {[1,2,3].map(i => (
-          <div key={i} className="h-24 bg-surface-subtle rounded-xl animate-pulse" />
+          <div key={i} className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: '#e2e8f0' }} />
         ))}
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div className="p-6 lg:p-8">
+        <p className="text-sm text-gray-500">No se pudo cargar el perfil. <button onClick={() => window.location.reload()} className="underline">Recargar</button></p>
       </div>
     )
   }

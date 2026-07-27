@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAppContext } from '@/lib/context/AppContext'
 import {
   Users, Palmtree, Stethoscope,
   AlertCircle, CheckCircle2,
@@ -11,30 +12,22 @@ import { SUCURSAL_LABELS } from '@/lib/types'
 import type { TodayAbsence, UpcomingBirthday } from '@/lib/types'
 
 export default function DashboardPage() {
-  const [profile, setProfile]                   = useState<any>(null)
-  const [todayAbsences, setTodayAbsences]       = useState<any[]>([])
-  const [pendingRequests, setPendingRequests]   = useState<any[]>([])
-  const [myBalance, setMyBalance]               = useState<any[]>([])
+  const { profile, userId } = useAppContext()
+
+  const [todayAbsences, setTodayAbsences]         = useState<any[]>([])
+  const [pendingRequests, setPendingRequests]     = useState<any[]>([])
+  const [myBalance, setMyBalance]                 = useState<any[]>([])
   const [myOvertimeBalance, setMyOvertimeBalance] = useState<any>(null)
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<any[]>([])
-  const [recentRequests, setRecentRequests]     = useState<any[]>([])
-  const [loading, setLoading]                   = useState(true)
+  const [recentRequests, setRecentRequests]       = useState<any[]>([])
+  const [loading, setLoading]                     = useState(true)
 
   useEffect(() => {
     const supabase = createClient()
+    const isLeaderAbove = ['hr_admin', 'manager', 'leader'].includes(profile.role)
+    const isHrOrManager = ['hr_admin', 'manager'].includes(profile.role)
 
-    async function loadData(userId: string) {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('*, area:areas(id,name,color)')
-        .eq('id', userId)
-        .single()
-      if (!prof) { setLoading(false); return }
-      setProfile(prof)
-
-      const isLeaderAbove = ['hr_admin', 'manager', 'leader'].includes(prof.role)
-      const isHrOrManager = ['hr_admin', 'manager'].includes(prof.role)
-
+    async function loadData() {
       const [
         { data: absences },
         { data: pending },
@@ -73,16 +66,8 @@ export default function DashboardPage() {
       setLoading(false)
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user?.id) {
-        loadData(session.user.id).catch(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+    loadData().catch(() => setLoading(false))
+  }, [userId, profile.role])
 
   if (loading) {
     return (
@@ -90,14 +75,6 @@ export default function DashboardPage() {
         {[1,2,3].map(i => (
           <div key={i} className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: '#e2e8f0' }} />
         ))}
-      </div>
-    )
-  }
-
-  if (!profile) {
-    return (
-      <div className="p-6 lg:p-8">
-        <p className="text-sm text-gray-500">No se pudo cargar el perfil. <button onClick={() => window.location.reload()} className="underline">Recargar</button></p>
       </div>
     )
   }

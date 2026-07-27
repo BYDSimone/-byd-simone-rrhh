@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAppContext } from '@/lib/context/AppContext'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -27,6 +28,7 @@ type FormData = z.infer<typeof schema>
 
 export default function NewRequestPage() {
   const router   = useRouter()
+  const { userId } = useAppContext()
   const supabase = createClient()
 
   const [benefitTypes, setBenefitTypes] = useState<any[]>([])
@@ -78,11 +80,10 @@ export default function NewRequestPage() {
   const dayCount = useMemo_days(watchStart, watchEnd, watchHalfDay)
 
   async function onSubmit(data: FormData) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { toast.error('Sesión expirada'); return }
+    if (!userId) { toast.error('Sesión expirada'); return }
 
     const { error } = await supabase.from('requests').insert({
-      employee_id:      user.id,
+      employee_id:      userId,
       benefit_type_id:  data.benefit_type_id,
       start_date:       data.start_date,
       end_date:         data.end_date,

@@ -8,6 +8,7 @@ import type { BenefitType } from './page'
 import {
   Gift,
   Pencil,
+  Trash2,
   X,
   Loader2,
   CheckCircle2,
@@ -20,20 +21,16 @@ import {
   Hash,
 } from 'lucide-react'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const PRESET_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#84cc16', // lime
+  '#3b82f6',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#84cc16',
 ]
-
-// ─── Color Picker ─────────────────────────────────────────────────────────────
 
 function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
@@ -54,8 +51,6 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
     </div>
   )
 }
-
-// ─── Toggle Field ─────────────────────────────────────────────────────────────
 
 function ToggleField({
   label,
@@ -92,8 +87,6 @@ function ToggleField({
     </button>
   )
 }
-
-// ─── Edit/Create Modal ────────────────────────────────────────────────────────
 
 function EditModal({
   benefitType,
@@ -163,7 +156,6 @@ function EditModal({
         </div>
 
         <div className="space-y-4 p-6">
-          {/* Code */}
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Código *
               <span className="ml-1 text-xs font-normal text-gray-400">(único, sin espacios)</span>
@@ -176,7 +168,6 @@ function EditModal({
             />
           </div>
 
-          {/* Name */}
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Nombre *</label>
             <input
@@ -187,7 +178,6 @@ function EditModal({
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Descripción</label>
             <textarea
@@ -198,7 +188,6 @@ function EditModal({
             />
           </div>
 
-          {/* Max days + Sort order */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">
@@ -226,13 +215,11 @@ function EditModal({
             </div>
           </div>
 
-          {/* Color */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Color *</label>
             <ColorPicker value={color} onChange={setColor} />
           </div>
 
-          {/* Toggles */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Configuración</label>
             <ToggleField label="Activo" description="El tipo aparece disponible para solicitudes" value={isActive} onChange={setIsActive} />
@@ -261,16 +248,16 @@ function EditModal({
   )
 }
 
-// ─── Benefit Type Card ────────────────────────────────────────────────────────
-
 function BenefitTypeRow({
   bt,
   onEdit,
   onToggleActive,
+  onDelete,
 }: {
   bt: BenefitType
   onEdit: (bt: BenefitType) => void
   onToggleActive: (bt: BenefitType) => void
+  onDelete: (bt: BenefitType) => void
 }) {
   return (
     <tr className={cn('transition-colors hover:bg-gray-50', !bt.is_active && 'opacity-60')}>
@@ -340,6 +327,17 @@ function BenefitTypeRow({
           >
             <Pencil className="h-4 w-4" />
           </button>
+          <button
+            onClick={() => {
+              if (confirm(`¿Eliminar "${bt.name}"? Esta acción no se puede deshacer.`)) {
+                onDelete(bt)
+              }
+            }}
+            className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+            title="Eliminar"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       </td>
     </tr>
@@ -358,8 +356,6 @@ function FeatureIcon({ enabled, icon: Icon, label }: { enabled: boolean; icon: R
   )
 }
 
-// ─── Main Client Component ────────────────────────────────────────────────────
-
 export default function BenefitTypesClientPage({ initialTypes }: { initialTypes: BenefitType[] }) {
   const supabase = createClient()
   const [types, setTypes] = useState<BenefitType[]>(initialTypes)
@@ -377,6 +373,16 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
   const openCreate = () => { setEditingType(null); setModalOpen(true) }
   const openEdit = (bt: BenefitType) => { setEditingType(bt); setModalOpen(true) }
   const closeModal = () => { setModalOpen(false); setEditingType(null) }
+
+  const handleDelete = async (bt: BenefitType) => {
+    const { error } = await supabase.from('benefit_types').delete().eq('id', bt.id)
+    if (error) {
+      toast.error(`Error: ${error.message}`)
+    } else {
+      toast.success(`"${bt.name}" eliminado`)
+      setTypes((prev) => prev.filter((t) => t.id !== bt.id))
+    }
+  }
 
   const handleToggleActive = async (bt: BenefitType) => {
     const newValue = !bt.is_active
@@ -399,7 +405,6 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-      {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Gift className="h-6 w-6 text-blue-600" />
@@ -418,12 +423,10 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
         </button>
       </div>
 
-      {/* Note */}
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-        Para eliminar un tipo de beneficio, desactivalo. Esto preserva el historial de solicitudes existentes.
+        Para preservar el historial de solicitudes, considerá desactivar en lugar de eliminar.
       </div>
 
-      {/* Table */}
       {types.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-200 py-20 text-center">
           <Gift className="h-12 w-12 text-gray-200" />
@@ -450,6 +453,7 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
                   bt={bt}
                   onEdit={openEdit}
                   onToggleActive={handleToggleActive}
+                  onDelete={handleDelete}
                 />
               ))}
             </tbody>
@@ -457,7 +461,6 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
         </div>
       )}
 
-      {/* Edit / Create Modal */}
       {modalOpen && (
         <EditModal
           benefitType={editingType}

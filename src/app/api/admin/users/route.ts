@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 
-// POST /api/admin/users — Crear usuario en Supabase Auth (requiere service_role)
 export async function POST(request: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -43,7 +42,7 @@ export async function POST(request: NextRequest) {
     const { data: newProfile, error: profileError } = await adminClient
       .from('profiles')
       .upsert({ id: userId, ...profileData })
-      .select('*, area:areas(id,name,color), leader:profiles!profiles_leader_id_fkey(id,full_name)')
+      .select('*, area:areas!profiles_area_id_fkey(id,name,color), leader:profiles!profiles_leader_id_fkey(id,full_name)')
       .single()
 
     if (profileError) {
@@ -57,7 +56,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ userId })
 }
 
-// PATCH /api/admin/users — Cambiar contraseña de un usuario
 export async function PATCH(request: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -87,7 +85,6 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-// DELETE /api/admin/users — Eliminar usuario de Auth
 export async function DELETE(request: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

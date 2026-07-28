@@ -119,18 +119,19 @@ function ToggleField({
   )
 }
 
-// ─── Edit Modal ───────────────────────────────────────────────────────────────
+// ─── Edit/Create Modal ────────────────────────────────────────────────────────
 
 function EditModal({
   benefitType,
   onClose,
   onSave,
 }: {
-  benefitType: BenefitType
+  benefitType: BenefitType | null   // null = crear nuevo
   onClose: () => void
-  onSave: (updated: BenefitType) => void
+  onSave: (saved: BenefitType) => void
 }) {
   const supabase = createClient()
+  const isCreating = benefitType === null
 
   const {
     register,
@@ -140,7 +141,17 @@ function EditModal({
     formState: { errors, isSubmitting },
   } = useForm<BenefitTypeForm>({
     resolver: zodResolver(benefitTypeSchema),
-    defaultValues: {
+    defaultValues: isCreating ? {
+      name: '',
+      description: '',
+      max_days_per_year: '' as unknown as number,
+      is_active: true,
+      requires_certificate: false,
+      allow_half_day: false,
+      needs_approval: true,
+      color: PRESET_COLORS[0],
+      sort_order: 99 as unknown as number,
+    } : {
       name: benefitType.name,
       description: benefitType.description ?? '',
       max_days_per_year: benefitType.max_days_per_year !== null
@@ -162,7 +173,7 @@ function EditModal({
   const needsApproval = watch('needs_approval')
 
   const onSubmit = async (values: BenefitTypeForm) => {
-    const updateData = {
+    const payload = {
       name: values.name,
       description: values.description || null,
       max_days_per_year: values.max_days_per_year,
@@ -174,20 +185,26 @@ function EditModal({
       sort_order: values.sort_order,
     }
 
-    const { data, error } = await supabase
-      .from('benefit_types')
-      .update(updateData)
-      .eq('id', benefitType.id)
-      .select()
-      .single()
-
-    if (error) {
-      toast.error('Error al guardar el tipo de beneficio')
-      return
+    if (isCreating) {
+      const { data, error } = await supabase
+        .from('benefit_types')
+        .insert(payload)
+        .select()
+        .single()
+      if (error) { toast.error('Error al crear el tipo de beneficio'); return }
+      toast.success('Tipo de beneficio creado')
+      onSave(data as BenefitType)
+    } else {
+      const { data, error } = await supabase
+        .from('benefit_types')
+        .update(payload)
+        .eq('id', benefitType.id)
+        .select()
+        .single()
+      if (error) { toast.error('Error al guardar el tipo de beneficio'); return }
+      toast.success('Tipo de beneficio actualizado')
+      onSave({ ...benefitType, ...data } as BenefitType)
     }
-
-    toast.success('Tipo de beneficio actualizado')
-    onSave({ ...benefitType, ...data } as BenefitType)
     onClose()
   }
 
@@ -195,7 +212,9 @@ function EditModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-10">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-900">Editar tipo de beneficio</h2>
+          <h2 className="text-base font-semibold text-gray-900">
+            {isCreating ? 'Nuevo tipo de beneficio' : 'Editar tipo de beneficio'}
+          </h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100">
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -412,10 +431,19 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
   const supabase = createClient()
   const [types, setTypes] = useState<BenefitType[]>(initialTypes)
   const [editingType, setEditingType] = useState<BenefitType | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
-  const handleSave = (updated: BenefitType) => {
-    setTypes((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+  const handleSave = (saved: BenefitType) => {
+    setTypes((prev) => {
+      const exists = prev.find((t) => t.id === saved.id)
+      if (exists) return prev.map((t) => (t.id === saved.id ? saved : t))
+      return [...prev, saved].sort((a, b) => a.sort_order - b.sort_order)
+    })
   }
+
+  const openCreate = () => { setEditingType(null); setModalOpen(true) }
+  const openEdit = (bt: BenefitType) => { setEditingType(bt); setModalOpen(true) }
+  const closeModal = () => { setModalOpen(false); setEditingType(null) }
 
   const handleToggleActive = async (bt: BenefitType) => {
     const newValue = !bt.is_active
@@ -439,14 +467,22 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Gift className="h-6 w-6 text-blue-600" />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tipos de beneficio</h1>
-          <p className="text-sm text-gray-500">
-            {types.length} tipo{types.length !== 1 ? 's' : ''} configurado{types.length !== 1 ? 's' : ''} — {activeCount} activo{activeCount !== 1 ? 's' : ''}
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Gift className="h-6 w-6 text-blue-600" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Tipos de beneficio</h1>
+            <p className="text-sm text-gray-500">
+              {types.length} tipo{types.length !== 1 ? 's' : ''} configurado{types.length !== 1 ? 's' : ''} — {activeCount} activo{activeCount !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={openCreate}
+          className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          + Nuevo tipo
+        </button>
       </div>
 
       {/* Note */}
@@ -479,7 +515,7 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
                 <BenefitTypeRow
                   key={bt.id}
                   bt={bt}
-                  onEdit={setEditingType}
+                  onEdit={openEdit}
                   onToggleActive={handleToggleActive}
                 />
               ))}
@@ -488,11 +524,11 @@ export default function BenefitTypesClientPage({ initialTypes }: { initialTypes:
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingType && (
+      {/* Edit / Create Modal */}
+      {modalOpen && (
         <EditModal
           benefitType={editingType}
-          onClose={() => setEditingType(null)}
+          onClose={closeModal}
           onSave={handleSave}
         />
       )}

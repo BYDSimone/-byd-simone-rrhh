@@ -148,4 +148,247 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
               employee_code: createData.employee_code || null,
               dni:           createData.dni || null,
               birth_date:    createData.birth_date || null,
-              hire_date:
+              hire_date:     createData.hire_date,
+              position:      createData.position || null,
+              area_id:       createData.area_id || null,
+              leader_id:     createData.leader_id || null,
+              role:          createData.role,
+              sucursal:      createData.sucursal,
+              phone:         createData.phone || null,
+              status:        'active',
+              notes:         createData.notes || null,
+            },
+          }),
+        })
+
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.message ?? 'Error al crear el usuario')
+        }
+
+        const { profile: newProfile } = await res.json()
+        toast.success(`${createData.full_name} fue creado correctamente.`)
+        onSaved(newProfile as Profile)
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? 'Ocurrió un error. Intentá de nuevo.')
+    }
+  }
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 animate-fade-in">
+      <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
+
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-surface z-10">
+          <div>
+            <h2 className="text-base font-semibold">
+              {editing ? 'Editar usuario' : 'Nuevo usuario'}
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              {editing ? `Editando: ${user.full_name}` : 'Completá los datos del nuevo colaborador'}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-raised transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form className="p-6 space-y-6" noValidate>
+
+          {!editing && (
+            <div>
+              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+                Datos de acceso
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Email *</label>
+                  <input type="email" className="form-input" placeholder="nombre@bydsimone.com.ar" {...register('email' as any)} />
+                  {(errors as any).email && <p className="form-error">{(errors as any).email.message}</p>}
+                </div>
+                <div>
+                  <label className="form-label">Contraseña *</label>
+                  <div className="relative">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      className="form-input pr-10"
+                      placeholder="Mínimo 8 caracteres"
+                      {...register('password' as any)}
+                    />
+                    <button type="button" onClick={() => setShowPass(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted" tabIndex={-1}>
+                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  {(errors as any).password && <p className="form-error">{(errors as any).password.message}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+              Datos personales
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="form-label">Nombre completo *</label>
+                <input type="text" className="form-input" placeholder="Ej: María González" {...register('full_name')} />
+                {errors.full_name && <p className="form-error">{errors.full_name.message}</p>}
+              </div>
+              <div>
+                <label className="form-label">DNI</label>
+                <input type="text" className="form-input" placeholder="30111222" {...register('dni')} />
+              </div>
+              <div>
+                <label className="form-label">Teléfono</label>
+                <input type="text" className="form-input" placeholder="+54 221 555 0000" {...register('phone')} />
+              </div>
+              <div>
+                <label className="form-label">Fecha de nacimiento</label>
+                <input type="date" className="form-input" {...register('birth_date')} />
+              </div>
+              <div>
+                <label className="form-label">Fecha de ingreso *</label>
+                <input type="date" className="form-input" {...register('hire_date')} />
+                {errors.hire_date && <p className="form-error">{errors.hire_date.message}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+              Datos laborales
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="form-label">Legajo</label>
+                <input type="text" className="form-input" placeholder="BYD-0001" {...register('employee_code')} />
+              </div>
+              <div>
+                <label className="form-label">Cargo / Puesto</label>
+                <input type="text" className="form-input" placeholder="Ej: Vendedor Sr." {...register('position')} />
+              </div>
+              <div>
+                <label className="form-label">Área *</label>
+                <select className="form-input" {...register('area_id')}>
+                  <option value="">Seleccioná un área</option>
+                  {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+                {errors.area_id && <p className="form-error">{errors.area_id.message}</p>}
+              </div>
+              <div>
+                <label className="form-label">Líder directo</label>
+                <select className="form-input" {...register('leader_id')}>
+                  <option value="">Sin líder asignado</option>
+                  {leaders.map(l => <option key={l.id} value={l.id}>{l.full_name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Rol en el sistema *</label>
+                <select className="form-input" {...register('role')}>
+                  <option value="collaborator">Colaborador</option>
+                  <option value="leader">Líder</option>
+                  <option value="manager">Gerente</option>
+                  <option value="hr_admin">RRHH / Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Sucursal *</label>
+                <select className="form-input" {...register('sucursal')}>
+                  <option value="la_plata">La Plata</option>
+                  <option value="mar_del_plata">Mar del Plata</option>
+                  <option value="brandsen">Brandsen</option>
+                  <option value="todas">Todas las sucursales</option>
+                </select>
+                {errors.sucursal && <p className="form-error">{errors.sucursal.message}</p>}
+              </div>
+              {editing && (
+                <div>
+                  <label className="form-label">Estado</label>
+                  <select className="form-input" {...register('status')}>
+                    <option value="active">Activo</option>
+                    <option value="inactive">Inactivo</option>
+                    <option value="on_leave">De licencia</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">Notas internas (solo RRHH)</label>
+            <textarea
+              rows={3}
+              className="form-input resize-none"
+              placeholder="Observaciones internas sobre el colaborador..."
+              {...register('notes')}
+            />
+          </div>
+
+          {editing && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <h3 className="text-xs font-semibold text-amber-800 uppercase tracking-wider">
+                Cambiar contraseña
+              </h3>
+              <p className="text-xs text-amber-700">
+                Usá esto si el colaborador olvidó su contraseña.
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Nueva contraseña (mín. 8 caracteres)"
+                    className="form-input pr-10 w-full"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass((p) => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted"
+                    tabIndex={-1}
+                  >
+                    {showNewPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleChangePassword}
+                  disabled={changingPass || newPassword.length < 8}
+                  className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {changingPass ? <Loader2 size={15} className="animate-spin" /> : 'Actualizar'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end pt-2 border-t border-border">
+            <button type="button" onClick={onClose} className="btn-secondary" disabled={isSubmitting}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              className="btn-primary"
+              onClick={() => handleSubmit(onSubmit, (errs) => {
+                const msgs = Object.entries(errs).map(([k, v]: any) => `${k}: ${v?.message}`).join(' | ')
+                toast.error(`Completá los campos: ${msgs}`)
+              })()}
+            >
+              {isSubmitting
+                ? <><Loader2 size={15} className="animate-spin" /> {editing ? 'Guardando...' : 'Creando...'}</>
+                : editing ? 'Guardar cambios' : 'Crear usuario'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

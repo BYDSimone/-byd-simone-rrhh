@@ -41,20 +41,19 @@ const PRESET_COLORS = [
 const benefitTypeSchema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres').max(80, 'Máximo 80 caracteres'),
   description: z.string().max(300, 'Máximo 300 caracteres').optional().or(z.literal('')),
-  max_days_per_year: z
-    .string()
-    .optional()
-    .transform((v) => (v === '' || v === undefined ? null : Number(v)))
-    .pipe(z.number().int().positive().nullable()),
+  max_days_per_year: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : Number(v)),
+    z.number().int().positive().nullable(),
+  ),
   is_active: z.boolean(),
   requires_certificate: z.boolean(),
   allow_half_day: z.boolean(),
   needs_approval: z.boolean(),
   color: z.string().min(1, 'Seleccioná un color'),
-  sort_order: z
-    .string()
-    .transform((v) => Number(v || '0'))
-    .pipe(z.number().int().min(0)),
+  sort_order: z.preprocess(
+    (v) => (v === '' || v === undefined ? 99 : Number(v)),
+    z.number().int().min(0),
+  ),
 })
 
 type BenefitTypeForm = z.infer<typeof benefitTypeSchema>
@@ -144,25 +143,23 @@ function EditModal({
     defaultValues: isCreating ? {
       name: '',
       description: '',
-      max_days_per_year: '' as unknown as number,
+      max_days_per_year: null as unknown as number,
       is_active: true,
       requires_certificate: false,
       allow_half_day: false,
       needs_approval: true,
       color: PRESET_COLORS[0],
-      sort_order: '99' as unknown as number,
+      sort_order: 99,
     } : {
       name: benefitType.name,
       description: benefitType.description ?? '',
-      max_days_per_year: benefitType.max_days_per_year !== null
-        ? (benefitType.max_days_per_year as unknown as string)
-        : '',
+      max_days_per_year: benefitType.max_days_per_year ?? null as unknown as number,
       is_active: benefitType.is_active,
       requires_certificate: benefitType.requires_certificate,
       allow_half_day: benefitType.allow_half_day,
       needs_approval: benefitType.needs_approval,
       color: benefitType.color ?? PRESET_COLORS[0],
-      sort_order: String(benefitType.sort_order) as unknown as number,
+      sort_order: benefitType.sort_order,
     },
   })
 

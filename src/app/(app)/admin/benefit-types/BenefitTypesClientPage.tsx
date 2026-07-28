@@ -220,7 +220,10 @@ function EditModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
+        <form onSubmit={handleSubmit(onSubmit, (errs) => {
+          const first = Object.values(errs)[0]
+          toast.error((first as any)?.message ?? 'Revisá los campos del formulario')
+        })} className="space-y-4 p-6">
           {/* Name */}
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Nombre *</label>

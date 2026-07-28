@@ -10,6 +10,7 @@ import BenefitTypesClientPage from './BenefitTypesClientPage'
 
 export interface BenefitType {
   id: string
+  code: string
   name: string
   description: string | null
   max_days_per_year: number | null

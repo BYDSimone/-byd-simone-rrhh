@@ -18,10 +18,11 @@ interface Props {
 }
 
 const SUCURSAL_OPTIONS = [
-  { value: '',              label: 'Todas las sucursales' },
-  { value: 'la_plata',     label: 'La Plata' },
+  { value: '',               label: 'Todas las sucursales' },
+  { value: 'la_plata',      label: 'La Plata' },
   { value: 'mar_del_plata', label: 'Mar del Plata' },
-  { value: 'brandsen',     label: 'Brandsen' },
+  { value: 'brandsen',      label: 'Brandsen' },
+  { value: 'todas',         label: 'Todas (perfil multi-sucursal)' },
 ]
 
 const ROLE_OPTIONS = [
@@ -45,7 +46,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
   const [deleteConfirm, setDeleteConfirm] = useState<Profile | null>(null)
   const [deleting,     setDeleting]     = useState(false)
 
-  // ── Filtros ──────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return users.filter(u => {
@@ -61,7 +61,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
     })
   }, [users, search, filterRole, filterSucursal, filterArea])
 
-  // ── Crear / editar usuario ────────────────────────────────
   async function handleSaved(user: Profile) {
     setUsers(prev => {
       const idx = prev.findIndex(u => u.id === user.id)
@@ -76,7 +75,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
     setEditingUser(null)
   }
 
-  // ── Soft delete ───────────────────────────────────────────
   async function handleDelete() {
     if (!deleteConfirm) return
     if (deleteConfirm.id === currentUserId) {
@@ -110,13 +108,13 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
       la_plata:      'bg-blue-50 text-blue-700',
       mar_del_plata: 'bg-teal-50 text-teal-700',
       brandsen:      'bg-amber-50 text-amber-700',
+      todas:         'bg-purple-50 text-purple-700',
     }[sucursal] ?? 'bg-slate-100 text-slate-500'
   }
 
   return (
     <div className="p-6 lg:p-8">
 
-      {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Usuarios</h1>
@@ -133,11 +131,8 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
         </button>
       </div>
 
-      {/* Filtros */}
       <div className="card p-4 mb-5">
         <div className="flex flex-col sm:flex-row gap-3">
-
-          {/* Search */}
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
@@ -148,31 +143,13 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
               className="form-input pl-9"
             />
           </div>
-
-          {/* Role filter */}
-          <select
-            value={filterRole}
-            onChange={e => setFilterRole(e.target.value)}
-            className="form-input w-full sm:w-44"
-          >
+          <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="form-input w-full sm:w-44">
             {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-
-          {/* Sucursal filter */}
-          <select
-            value={filterSucursal}
-            onChange={e => setFilterSucursal(e.target.value)}
-            className="form-input w-full sm:w-44"
-          >
+          <select value={filterSucursal} onChange={e => setFilterSucursal(e.target.value)} className="form-input w-full sm:w-44">
             {SUCURSAL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-
-          {/* Area filter */}
-          <select
-            value={filterArea}
-            onChange={e => setFilterArea(e.target.value)}
-            className="form-input w-full sm:w-44"
-          >
+          <select value={filterArea} onChange={e => setFilterArea(e.target.value)} className="form-input w-full sm:w-44">
             <option value="">Todas las áreas</option>
             {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
@@ -193,7 +170,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
         )}
       </div>
 
-      {/* Tabla */}
       {filtered.length === 0 ? (
         <div className="empty-state card">
           <UserCog size={40} className="text-border-strong" />
@@ -220,8 +196,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
               <tbody>
                 {filtered.map(user => (
                   <tr key={user.id} className="group">
-
-                    {/* Colaborador */}
                     <td>
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-brand-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
@@ -237,31 +211,20 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
                         </div>
                       </div>
                     </td>
-
-                    {/* Legajo */}
                     <td>
                       <span className="font-mono text-xs text-text-muted">
                         {user.employee_code ?? '—'}
                       </span>
                     </td>
-
-                    {/* Cargo */}
                     <td className="text-sm">{user.position ?? <span className="text-text-muted">—</span>}</td>
-
-                    {/* Área */}
                     <td>
                       {(user as any).area ? (
                         <div className="flex items-center gap-1.5">
-                          <span
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: (user as any).area.color }}
-                          />
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: (user as any).area.color }} />
                           <span className="text-sm">{(user as any).area.name}</span>
                         </div>
                       ) : <span className="text-text-muted text-sm">—</span>}
                     </td>
-
-                    {/* Sucursal */}
                     <td>
                       {user.sucursal ? (
                         <span className={cn('badge', getSucursalColor(user.sucursal))}>
@@ -270,20 +233,14 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
                         </span>
                       ) : <span className="text-text-muted text-sm">—</span>}
                     </td>
-
-                    {/* Rol */}
                     <td>
                       <span className={`badge-${user.role}`}>
                         {ROLE_LABELS[user.role]}
                       </span>
                     </td>
-
-                    {/* Ingreso */}
                     <td className="text-sm text-text-muted whitespace-nowrap">
                       {formatDate(user.hire_date)}
                     </td>
-
-                    {/* Estado */}
                     <td>
                       <span className={cn('badge', {
                         'badge-approved':   user.status === 'active',
@@ -293,8 +250,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
                         {{ active: 'Activo', inactive: 'Inactivo', on_leave: 'De licencia' }[user.status]}
                       </span>
                     </td>
-
-                    {/* Acciones */}
                     <td>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -323,7 +278,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
         </div>
       )}
 
-      {/* Modal crear / editar */}
       {showModal && (
         <UserFormModal
           user={editingUser}
@@ -334,7 +288,6 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
         />
       )}
 
-      {/* Modal confirmar eliminación */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 animate-fade-in">
           <div className="card p-6 w-full max-w-sm animate-slide-up">
@@ -348,22 +301,14 @@ export function UsersClientPage({ initialUsers, areas, leaders, currentUserId }:
               </div>
             </div>
             <p className="text-sm text-text-secondary mb-5">
-              ¿Confirmas que querés eliminar a <strong className="text-text-primary">{deleteConfirm.full_name}</strong>?
+              ¿Confirmás que querés eliminar a <strong className="text-text-primary">{deleteConfirm.full_name}</strong>?
               El usuario no podrá acceder a la plataforma. Su historial se conserva.
             </p>
             <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                disabled={deleting}
-                className="btn-secondary"
-              >
+              <button onClick={() => setDeleteConfirm(null)} disabled={deleting} className="btn-secondary">
                 Cancelar
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="btn-danger"
-              >
+              <button onClick={handleDelete} disabled={deleting} className="btn-danger">
                 {deleting ? 'Eliminando...' : 'Eliminar'}
               </button>
             </div>

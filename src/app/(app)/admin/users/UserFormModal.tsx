@@ -199,7 +199,10 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6" noValidate>
+        <form onSubmit={handleSubmit(onSubmit, (errs) => {
+          const msgs = Object.entries(errs).map(([k, v]: any) => `${k}: ${v?.message}`).join(' | ')
+          toast.error(`Errores de validación: ${msgs}`)
+        })} className="p-6 space-y-6" noValidate>
 
           {!editing && (
             <div>

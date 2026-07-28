@@ -1,9 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -35,28 +32,6 @@ const PRESET_COLORS = [
   '#06b6d4', // cyan
   '#84cc16', // lime
 ]
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
-
-const benefitTypeSchema = z.object({
-  name: z.string().min(2, 'Mínimo 2 caracteres').max(80, 'Máximo 80 caracteres'),
-  description: z.string().max(300, 'Máximo 300 caracteres').optional().or(z.literal('')),
-  max_days_per_year: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? null : Number(v)),
-    z.number().int().positive().nullable(),
-  ),
-  is_active: z.boolean(),
-  requires_certificate: z.boolean(),
-  allow_half_day: z.boolean(),
-  needs_approval: z.boolean(),
-  color: z.string().min(1, 'Seleccioná un color'),
-  sort_order: z.preprocess(
-    (v) => (v === '' || v === undefined ? 99 : Number(v)),
-    z.number().int().min(0),
-  ),
-})
-
-type BenefitTypeForm = z.infer<typeof benefitTypeSchema>
 
 // ─── Color Picker ─────────────────────────────────────────────────────────────
 
@@ -125,83 +100,50 @@ function EditModal({
   onClose,
   onSave,
 }: {
-  benefitType: BenefitType | null   // null = crear nuevo
+  benefitType: BenefitType | null
   onClose: () => void
   onSave: (saved: BenefitType) => void
 }) {
   const supabase = createClient()
   const isCreating = benefitType === null
+  const [saving, setSaving] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<BenefitTypeForm>({
-    resolver: zodResolver(benefitTypeSchema),
-    defaultValues: isCreating ? {
-      name: '',
-      description: '',
-      max_days_per_year: null as unknown as number,
-      is_active: true,
-      requires_certificate: false,
-      allow_half_day: false,
-      needs_approval: true,
-      color: PRESET_COLORS[0],
-      sort_order: 99,
-    } : {
-      name: benefitType.name,
-      description: benefitType.description ?? '',
-      max_days_per_year: benefitType.max_days_per_year ?? null as unknown as number,
-      is_active: benefitType.is_active,
-      requires_certificate: benefitType.requires_certificate,
-      allow_half_day: benefitType.allow_half_day,
-      needs_approval: benefitType.needs_approval,
-      color: benefitType.color ?? PRESET_COLORS[0],
-      sort_order: benefitType.sort_order,
-    },
-  })
+  const [name, setName] = useState(benefitType?.name ?? '')
+  const [description, setDescription] = useState(benefitType?.description ?? '')
+  const [maxDays, setMaxDays] = useState(benefitType?.max_days_per_year?.toString() ?? '')
+  const [sortOrder, setSortOrder] = useState(benefitType?.sort_order?.toString() ?? '99')
+  const [color, setColor] = useState(benefitType?.color ?? PRESET_COLORS[0])
+  const [isActive, setIsActive] = useState(benefitType?.is_active ?? true)
+  const [requiresCert, setRequiresCert] = useState(benefitType?.requires_certificate ?? false)
+  const [allowHalf, setAllowHalf] = useState(benefitType?.allow_half_day ?? false)
+  const [needsApproval, setNeedsApproval] = useState(benefitType?.needs_approval ?? true)
 
-  const colorValue = watch('color')
-  const isActive = watch('is_active')
-  const requiresCert = watch('requires_certificate')
-  const allowHalf = watch('allow_half_day')
-  const needsApproval = watch('needs_approval')
-
-  const onSubmit = async (values: BenefitTypeForm) => {
+  const handleSave = async () => {
+    if (name.trim().length < 2) { toast.error('El nombre debe tener al menos 2 caracteres'); return }
+    setSaving(true)
     const payload = {
-      name: values.name,
-      description: values.description || null,
-      max_days_per_year: values.max_days_per_year,
-      is_active: values.is_active,
-      requires_certificate: values.requires_certificate,
-      allow_half_day: values.allow_half_day,
-      needs_approval: values.needs_approval,
-      color: values.color,
-      sort_order: values.sort_order,
+      name: name.trim(),
+      description: description.trim() || null,
+      max_days_per_year: maxDays === '' ? null : parseInt(maxDays, 10),
+      is_active: isActive,
+      requires_certificate: requiresCert,
+      allow_half_day: allowHalf,
+      needs_approval: needsApproval,
+      color,
+      sort_order: parseInt(sortOrder, 10) || 99,
     }
-
     if (isCreating) {
-      const { data, error } = await supabase
-        .from('benefit_types')
-        .insert(payload)
-        .select()
-        .single()
-      if (error) { toast.error('Error al crear el tipo de beneficio'); return }
+      const { data, error } = await supabase.from('benefit_types').insert(payload).select().single()
+      if (error) { toast.error(`Error: ${error.message}`); setSaving(false); return }
       toast.success('Tipo de beneficio creado')
       onSave(data as BenefitType)
     } else {
-      const { data, error } = await supabase
-        .from('benefit_types')
-        .update(payload)
-        .eq('id', benefitType.id)
-        .select()
-        .single()
-      if (error) { toast.error('Error al guardar el tipo de beneficio'); return }
+      const { data, error } = await supabase.from('benefit_types').update(payload).eq('id', benefitType!.id).select().single()
+      if (error) { toast.error(`Error: ${error.message}`); setSaving(false); return }
       toast.success('Tipo de beneficio actualizado')
-      onSave({ ...benefitType, ...data } as BenefitType)
+      onSave({ ...benefitType!, ...data } as BenefitType)
     }
+    setSaving(false)
     onClose()
   }
 
@@ -212,30 +154,29 @@ function EditModal({
           <h2 className="text-base font-semibold text-gray-900">
             {isCreating ? 'Nuevo tipo de beneficio' : 'Editar tipo de beneficio'}
           </h2>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100">
+          <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100">
             <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit, (errs) => {
-          const first = Object.values(errs)[0]
-          toast.error((first as any)?.message ?? 'Revisá los campos del formulario')
-        })} className="space-y-4 p-6">
+        <div className="space-y-4 p-6">
           {/* Name */}
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Nombre *</label>
             <input
-              {...register('name')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Ej: Vacaciones"
             />
-            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
           </div>
 
           {/* Description */}
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Descripción</label>
             <textarea
-              {...register('description')}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               rows={2}
               className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
@@ -249,7 +190,8 @@ function EditModal({
                 <span className="ml-1 text-xs font-normal text-gray-400">(vacío = sin límite)</span>
               </label>
               <input
-                {...register('max_days_per_year')}
+                value={maxDays}
+                onChange={(e) => setMaxDays(e.target.value)}
                 type="number"
                 min={1}
                 placeholder="Sin límite"
@@ -257,9 +199,10 @@ function EditModal({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Orden de visualización</label>
+              <label className="text-sm font-medium text-gray-700">Orden</label>
               <input
-                {...register('sort_order')}
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
                 type="number"
                 min={0}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -270,59 +213,33 @@ function EditModal({
           {/* Color */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Color *</label>
-            <ColorPicker value={colorValue} onChange={(c) => setValue('color', c)} />
+            <ColorPicker value={color} onChange={setColor} />
           </div>
 
           {/* Toggles */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Configuración</label>
-            <ToggleField
-              label="Activo"
-              description="El tipo aparece disponible para solicitudes"
-              value={isActive}
-              onChange={(v) => setValue('is_active', v)}
-            />
-            <ToggleField
-              label="Requiere certificado"
-              description="El colaborador debe adjuntar documentación"
-              value={requiresCert}
-              onChange={(v) => setValue('requires_certificate', v)}
-              icon={FileCheck}
-            />
-            <ToggleField
-              label="Permite medio día"
-              description="Se puede solicitar 0.5 días"
-              value={allowHalf}
-              onChange={(v) => setValue('allow_half_day', v)}
-              icon={Clock}
-            />
-            <ToggleField
-              label="Requiere aprobación"
-              description="El líder/manager debe aprobar la solicitud"
-              value={needsApproval}
-              onChange={(v) => setValue('needs_approval', v)}
-              icon={ThumbsUp}
-            />
+            <ToggleField label="Activo" description="El tipo aparece disponible para solicitudes" value={isActive} onChange={setIsActive} />
+            <ToggleField label="Requiere certificado" description="El colaborador debe adjuntar documentación" value={requiresCert} onChange={setRequiresCert} icon={FileCheck} />
+            <ToggleField label="Permite medio día" description="Se puede solicitar 0.5 días" value={allowHalf} onChange={setAllowHalf} icon={Clock} />
+            <ToggleField label="Requiere aprobación" description="El líder/manager debe aprobar la solicitud" value={needsApproval} onChange={setNeedsApproval} icon={ThumbsUp} />
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
+            <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
               Cancelar
             </button>
             <button
-              type="submit"
-              disabled={isSubmitting}
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Guardar cambios
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isCreating ? 'Crear tipo' : 'Guardar cambios'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

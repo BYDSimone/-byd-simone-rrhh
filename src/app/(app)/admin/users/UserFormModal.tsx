@@ -127,7 +127,7 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
             notes:         data.notes || null,
           })
           .eq('id', user.id)
-          .select('*, area:areas!profiles_area_id_fkey(id,name,color), leader:profiles!profiles_leader_id_fkey(id,full_name)')
+          .select('*')
           .single()
 
         if (error) throw error

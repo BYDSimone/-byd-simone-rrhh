@@ -4,7 +4,7 @@
 
 export type UserRole = 'collaborator' | 'leader' | 'manager' | 'hr_admin'
 export type ProfileStatus = 'active' | 'inactive' | 'on_leave'
-export type Sucursal = 'la_plata' | 'mar_del_plata' | 'brandsen'
+export type Sucursal = 'la_plata' | 'mar_del_plata' | 'brandsen' | 'todas'
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'needs_info'
 export type OvertimeStatus = 'pending_validation' | 'validated' | 'rejected' | 'credited'
 export type OvertimeCompStatus = 'pending' | 'approved' | 'rejected'
@@ -24,9 +24,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 }
 
 export const SUCURSAL_LABELS: Record<Sucursal, string> = {
-  la_plata:     'La Plata',
+  la_plata:      'La Plata',
   mar_del_plata: 'Mar del Plata',
-  brandsen:     'Brandsen',
+  brandsen:      'Brandsen',
+  todas:         'Todas las sucursales',
 }
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {

@@ -82,7 +82,7 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
 
   const schema = editing ? editSchema : createSchema
 
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema as any),
     defaultValues: editing ? {
       full_name:     user.full_name,
@@ -199,10 +199,7 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit, (errs) => {
-          const msgs = Object.entries(errs).map(([k, v]: any) => `${k}: ${v?.message}`).join(' | ')
-          toast.error(`Errores de validación: ${msgs}`)
-        })} className="p-6 space-y-6" noValidate>
+        <form className="p-6 space-y-6" noValidate>
 
           {!editing && (
             <div>
@@ -376,7 +373,15 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
             <button type="button" onClick={onClose} className="btn-secondary" disabled={isSubmitting}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              className="btn-primary"
+              onClick={() => handleSubmit(onSubmit, (errs) => {
+                const msgs = Object.entries(errs).map(([k, v]: any) => `${k}: ${v?.message}`).join(' | ')
+                toast.error(`Completá los campos: ${msgs}`)
+              })()}
+            >
               {isSubmitting
                 ? <><Loader2 size={15} className="animate-spin" /> {editing ? 'Guardando...' : 'Creando...'}</>
                 : editing ? 'Guardar cambios' : 'Crear usuario'}

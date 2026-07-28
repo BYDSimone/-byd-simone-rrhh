@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const { data: newProfile, error: profileError } = await adminClient
       .from('profiles')
       .upsert({ id: userId, ...profileData })
-      .select('*, area:areas!profiles_area_id_fkey(id,name,color), leader:profiles!profiles_leader_id_fkey(id,full_name)')
+      .select('*')
       .single()
 
     if (profileError) {

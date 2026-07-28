@@ -29,7 +29,7 @@ export default function UsersPage() {
       ] = await Promise.all([
         supabase
           .from('profiles')
-          .select('*, area:areas(id,name,color), leader:profiles!profiles_leader_id_fkey(id,full_name)')
+          .select('*, area:areas!profiles_area_id_fkey(id,name,color)')
           .is('deleted_at', null)
           .order('full_name'),
         supabase.from('areas').select('*').eq('is_active', true).order('name'),

@@ -150,7 +150,7 @@ function EditModal({
       allow_half_day: false,
       needs_approval: true,
       color: PRESET_COLORS[0],
-      sort_order: 99 as unknown as number,
+      sort_order: '99' as unknown as number,
     } : {
       name: benefitType.name,
       description: benefitType.description ?? '',

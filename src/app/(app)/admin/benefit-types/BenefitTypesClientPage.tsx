@@ -361,4 +361,110 @@ function FeatureIcon({ enabled, icon: Icon, label }: { enabled: boolean; icon: R
 // ─── Main Client Component ────────────────────────────────────────────────────
 
 export default function BenefitTypesClientPage({ initialTypes }: { initialTypes: BenefitType[] }) {
-  const supabase =
+  const supabase = createClient()
+  const [types, setTypes] = useState<BenefitType[]>(initialTypes)
+  const [editingType, setEditingType] = useState<BenefitType | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+
+  const handleSave = (saved: BenefitType) => {
+    setTypes((prev) => {
+      const exists = prev.find((t) => t.id === saved.id)
+      if (exists) return prev.map((t) => (t.id === saved.id ? saved : t))
+      return [...prev, saved].sort((a, b) => a.sort_order - b.sort_order)
+    })
+  }
+
+  const openCreate = () => { setEditingType(null); setModalOpen(true) }
+  const openEdit = (bt: BenefitType) => { setEditingType(bt); setModalOpen(true) }
+  const closeModal = () => { setModalOpen(false); setEditingType(null) }
+
+  const handleToggleActive = async (bt: BenefitType) => {
+    const newValue = !bt.is_active
+    const { error } = await supabase
+      .from('benefit_types')
+      .update({ is_active: newValue })
+      .eq('id', bt.id)
+
+    if (error) {
+      toast.error('Error al actualizar el estado')
+    } else {
+      toast.success(newValue ? 'Tipo activado' : 'Tipo desactivado')
+      setTypes((prev) =>
+        prev.map((t) => (t.id === bt.id ? { ...t, is_active: newValue } : t)),
+      )
+    }
+  }
+
+  const activeCount = types.filter((t) => t.is_active).length
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Gift className="h-6 w-6 text-blue-600" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Tipos de beneficio</h1>
+            <p className="text-sm text-gray-500">
+              {types.length} tipo{types.length !== 1 ? 's' : ''} configurado{types.length !== 1 ? 's' : ''} — {activeCount} activo{activeCount !== 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={openCreate}
+          className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          + Nuevo tipo
+        </button>
+      </div>
+
+      {/* Note */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        Para eliminar un tipo de beneficio, desactivalo. Esto preserva el historial de solicitudes existentes.
+      </div>
+
+      {/* Table */}
+      {types.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-200 py-20 text-center">
+          <Gift className="h-12 w-12 text-gray-200" />
+          <p className="text-sm text-gray-500">No hay tipos de beneficio configurados</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
+            <thead className="border-b border-gray-100 bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Días/año</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Cert.</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">½ día</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Aprobación</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {types.map((bt) => (
+                <BenefitTypeRow
+                  key={bt.id}
+                  bt={bt}
+                  onEdit={openEdit}
+                  onToggleActive={handleToggleActive}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Edit / Create Modal */}
+      {modalOpen && (
+        <EditModal
+          benefitType={editingType}
+          onClose={closeModal}
+          onSave={handleSave}
+        />
+      )}
+    </div>
+  )
+}

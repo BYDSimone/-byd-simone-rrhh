@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'No autorizado' }, { status: 403 })
   }
 
-  const { email, password } = await request.json()
+  const { email, password, profileData } = await request.json()
 
   if (!email || !password) {
     return NextResponse.json({ message: 'Email y contraseña requeridos' }, { status: 400 })
@@ -37,7 +37,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: error.message }, { status: 400 })
   }
 
-  return NextResponse.json({ userId: data.user.id })
+  const userId = data.user.id
+
+  if (profileData) {
+    const { data: newProfile, error: profileError } = await adminClient
+      .from('profiles')
+      .upsert({ id: userId, ...profileData })
+      .select('*, area:areas(id,name,color), leader:profiles!profiles_leader_id_fkey(id,full_name)')
+      .single()
+
+    if (profileError) {
+      await adminClient.auth.admin.deleteUser(userId)
+      return NextResponse.json({ message: profileError.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ userId, profile: newProfile })
+  }
+
+  return NextResponse.json({ userId })
 }
 
 // PATCH /api/admin/users — Cambiar contraseña de un usuario

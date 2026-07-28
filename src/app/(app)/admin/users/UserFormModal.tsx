@@ -9,7 +9,6 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Area, UserRole, Sucursal } from '@/lib/types'
 
-// ── Schema de validación ────────────────────────────────────
 const baseSchema = z.object({
   full_name:     z.string().min(2, 'Ingresá el nombre completo'),
   employee_code: z.string().optional(),
@@ -20,7 +19,7 @@ const baseSchema = z.object({
   area_id:       z.string().min(1, 'Seleccioná un área'),
   leader_id:     z.string().optional(),
   role:          z.enum(['collaborator', 'leader', 'manager', 'hr_admin']),
-  sucursal:      z.enum(['la_plata', 'mar_del_plata', 'brandsen']),
+  sucursal:      z.enum(['la_plata', 'mar_del_plata', 'brandsen', 'todas']),
   phone:         z.string().optional(),
   status:        z.enum(['active', 'inactive', 'on_leave']),
   notes:         z.string().optional(),
@@ -52,7 +51,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
   const editing  = isEditing(user)
   const [showPass, setShowPass] = useState(false)
 
-  // ── Cambio de contraseña (solo edición) ─────────────────────
   const [newPassword, setNewPassword] = useState('')
   const [showNewPass, setShowNewPass] = useState(false)
   const [changingPass, setChangingPass] = useState(false)
@@ -111,7 +109,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
   async function onSubmit(data: FormData) {
     try {
       if (editing) {
-        // ── Editar perfil existente ─────────────────────────
         const { data: updated, error } = await supabase
           .from('profiles')
           .update({
@@ -138,49 +135,38 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
         onSaved(updated as Profile)
 
       } else {
-        // ── Crear nuevo usuario ─────────────────────────────
         const createData = data as CreateForm
 
-        // 1. Crear en auth.users via Admin API (Route Handler)
         const res = await fetch('/api/admin/users', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email:    createData.email,
             password: createData.password,
+            profileData: {
+              full_name:     createData.full_name,
+              employee_code: createData.employee_code || null,
+              dni:           createData.dni || null,
+              birth_date:    createData.birth_date || null,
+              hire_date:     createData.hire_date,
+              position:      createData.position || null,
+              area_id:       createData.area_id || null,
+              leader_id:     createData.leader_id || null,
+              role:          createData.role,
+              sucursal:      createData.sucursal,
+              phone:         createData.phone || null,
+              status:        'active',
+              notes:         createData.notes || null,
+            },
           }),
         })
 
         if (!res.ok) {
           const err = await res.json()
-          throw new Error(err.message ?? 'Error al crear el usuario en Auth')
+          throw new Error(err.message ?? 'Error al crear el usuario')
         }
 
-        const { userId } = await res.json()
-
-        // 2. Crear perfil
-        const { data: newProfile, error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id:            userId,
-            full_name:     createData.full_name,
-            employee_code: createData.employee_code || null,
-            dni:           createData.dni || null,
-            birth_date:    createData.birth_date || null,
-            hire_date:     createData.hire_date,
-            position:      createData.position || null,
-            area_id:       createData.area_id || null,
-            leader_id:     createData.leader_id || null,
-            role:          createData.role,
-            sucursal:      createData.sucursal,
-            phone:         createData.phone || null,
-            status:        'active',
-            notes:         createData.notes || null,
-          })
-          .select('*, area:areas(id,name,color), leader:profiles!profiles_leader_id_fkey(id,full_name)')
-          .single()
-
-        if (profileError) throw profileError
+        const { profile: newProfile } = await res.json()
         toast.success(`${createData.full_name} fue creado correctamente.`)
         onSaved(newProfile as Profile)
       }
@@ -189,7 +175,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
     }
   }
 
-  // Cerrar con ESC
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
@@ -200,7 +185,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 animate-fade-in">
       <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
 
-        {/* Header del modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-surface z-10">
           <div>
             <h2 className="text-base font-semibold">
@@ -215,10 +199,8 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
           </button>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6" noValidate>
 
-          {/* Sección: Datos de acceso (solo al crear) */}
           {!editing && (
             <div>
               <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
@@ -249,7 +231,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
             </div>
           )}
 
-          {/* Sección: Datos personales */}
           <div>
             <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
               Datos personales
@@ -280,7 +261,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
             </div>
           </div>
 
-          {/* Sección: Datos laborales */}
           <div>
             <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
               Datos laborales
@@ -324,6 +304,7 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
                   <option value="la_plata">La Plata</option>
                   <option value="mar_del_plata">Mar del Plata</option>
                   <option value="brandsen">Brandsen</option>
+                  <option value="todas">Todas las sucursales</option>
                 </select>
                 {errors.sucursal && <p className="form-error">{errors.sucursal.message}</p>}
               </div>
@@ -340,7 +321,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
             </div>
           </div>
 
-          {/* Notas internas */}
           <div>
             <label className="form-label">Notas internas (solo RRHH)</label>
             <textarea
@@ -351,7 +331,6 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
             />
           </div>
 
-          {/* Cambio de contraseña (solo edición) */}
           {editing && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
               <h3 className="text-xs font-semibold text-amber-800 uppercase tracking-wider">
@@ -384,17 +363,12 @@ export function UserFormModal({ user, areas, leaders, onSaved, onClose }: Props)
                   disabled={changingPass || newPassword.length < 8}
                   className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {changingPass ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    'Actualizar'
-                  )}
+                  {changingPass ? <Loader2 size={15} className="animate-spin" /> : 'Actualizar'}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Botones */}
           <div className="flex gap-2 justify-end pt-2 border-t border-border">
             <button type="button" onClick={onClose} className="btn-secondary" disabled={isSubmitting}>
               Cancelar

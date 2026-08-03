@@ -25,7 +25,7 @@ export default function RequestsPage() {
         .from('requests')
         .select(`
           *,
-          employee:profiles!requests_employee_id_fkey(id, full_name, avatar_url, area_id, area:areas(name,color)),
+          employee:profiles!requests_employee_id_fkey(id, full_name, avatar_url, area_id, area:areas!profiles_area_id_fkey(name,color)),
           benefit_type:benefit_types(id, name, color, code, requires_certificate),
           reviewer:profiles!requests_reviewer_id_fkey(id, full_name)
         `)

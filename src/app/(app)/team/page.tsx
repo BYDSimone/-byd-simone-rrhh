@@ -19,13 +19,13 @@ export default function TeamPage() {
       let profilesQuery = supabase
         .from('profiles')
         .select(
-          `id, full_name, email, position, role, hire_date, dob, phone, sucursal, area_id, deleted_at,
-           areas(id, name, color)`
+          `id, full_name, position, role, hire_date, birth_date, phone, sucursal, area_id, status,
+           area:areas!profiles_area_id_fkey(id, name, color)`
         )
         .is('deleted_at', null)
+        .eq('status', 'active')
         .order('full_name', { ascending: true })
 
-      // Collaborators can only see their own area
       if (profile.role === 'collaborator') {
         profilesQuery = profilesQuery.eq('area_id', profile.area_id)
       }

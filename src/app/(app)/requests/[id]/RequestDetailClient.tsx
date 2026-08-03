@@ -28,7 +28,7 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
   const isOwner    = request.employee_id === currentUserId
   const isHrAdmin  = currentRole === 'hr_admin'
   const isLeaderUp = ['leader','manager','hr_admin'].includes(currentRole)
-  const canReview  = isLeaderUp && !isOwner && request.status === 'pending'
+  const canReview  = isLeaderUp && (!isOwner || isHrAdmin) && request.status === 'pending'
   const canCancel  = isOwner && request.status === 'pending'
   const canUploadCert = (isOwner || isHrAdmin) && request.benefit_type?.requires_certificate
 
@@ -77,7 +77,7 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
   async function handleCertUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const maxSize = 10 * 1024 * 1024  // 10MB
+    const maxSize = 10 * 1024 * 1024
     if (file.size > maxSize) { toast.error('El archivo no puede superar 10MB.'); return }
 
     setUploading(true)
@@ -130,17 +130,14 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl">
-      {/* Back */}
       <Link href="/requests" className="btn-ghost btn-sm mb-6 inline-flex">
         <ArrowLeft size={16} /> Solicitudes
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ── Columna principal ── */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Header de la solicitud */}
           <div className="card p-5">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -159,7 +156,6 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
               <span className={sc.cls}>{sc.label}</span>
             </div>
 
-            {/* Motivo */}
             {request.reason && (
               <div className="bg-surface-subtle rounded-lg p-3 text-sm text-text-secondary">
                 <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Motivo</p>
@@ -167,7 +163,6 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
               </div>
             )}
 
-            {/* Comentario del revisor */}
             {request.reviewer_comment && (
               <div className={cn('rounded-lg p-3 mt-3 text-sm', {
                 'bg-emerald-50 border border-emerald-200': request.status === 'approved',
@@ -185,7 +180,6 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
             )}
           </div>
 
-          {/* Certificados médicos */}
           {bt?.requires_certificate && (
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">
@@ -248,7 +242,6 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
             </div>
           )}
 
-          {/* Panel de acciones (líder/manager/HR) */}
           {canReview && (
             <div className="card p-5">
               <h2 className="text-sm font-semibold mb-4">Revisar solicitud</h2>
@@ -290,7 +283,6 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
             </div>
           )}
 
-          {/* Cancelar (empleado) */}
           {canCancel && (
             <div className="card p-4 border-border">
               <button
@@ -304,7 +296,6 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
             </div>
           )}
 
-          {/* Timeline de auditoría */}
           {auditLogs.length > 0 && (
             <div className="card p-5">
               <h2 className="text-sm font-semibold mb-4">Historial de actividad</h2>
@@ -343,12 +334,10 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
           )}
         </div>
 
-        {/* ── Sidebar derecha: info del empleado ── */}
         <div className="space-y-5">
           <div className="card p-5">
             <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Colaborador</h2>
 
-            {/* Avatar + nombre */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-brand-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
                 {emp?.avatar_url
@@ -389,7 +378,6 @@ export function RequestDetailClient({ request, auditLogs, currentUserId, current
             </Link>
           </div>
 
-          {/* Metadatos de la solicitud */}
           <div className="card p-5">
             <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Detalles</h2>
             <dl className="space-y-2.5 text-sm">

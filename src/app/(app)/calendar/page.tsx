@@ -26,12 +26,12 @@ export default function CalendarPage() {
       const monthStartStr = format(monthStart, 'yyyy-MM-dd')
       const monthEndStr = format(monthEnd, 'yyyy-MM-dd')
 
-      // Build requests query based on role
       let requestsQuery = supabase
         .from('requests')
         .select(
-          `id, start_date, end_date, benefit_type, status, employee_id,
-           profiles!requests_employee_id_fkey(id, full_name, area_id)`
+          `id, start_date, end_date, status, employee_id,
+           benefit_type:benefit_types(id, name, color, code),
+           employee:profiles!requests_employee_id_fkey(id, full_name, area_id)`
         )
         .eq('status', 'approved')
         .lte('start_date', monthEndStr)
@@ -53,13 +53,11 @@ export default function CalendarPage() {
         const ids = (teamIds ?? []).map((p: { id: string }) => p.id)
         requestsQuery = requestsQuery.in('employee_id', ids)
       }
-      // manager / hr_admin: no filter → all
 
-      // Overtime records — fixed field names: work_date, total_hours
       let overtimeQuery = supabase
         .from('overtime_records')
         .select(
-          `id, work_date, total_hours, type, employee_id,
+          `id, work_date, total_hours, employee_id,
            profiles!overtime_records_employee_id_fkey(id, full_name)`
         )
         .gte('work_date', monthStartStr)
@@ -80,14 +78,13 @@ export default function CalendarPage() {
         await Promise.all([
           requestsQuery,
           overtimeQuery,
-          supabase.from('profiles').select('id, full_name, dob').is('deleted_at', null),
+          supabase.from('profiles').select('id, full_name, birth_date').is('deleted_at', null),
         ])
 
-      // Upcoming birthdays — filter by month of dob
       const currentMonth = now.getMonth() + 1
-      const birthdaysData = (allProfiles ?? []).filter((p: { dob: string | null }) => {
-        if (!p.dob) return false
-        const month = new Date(p.dob).getUTCMonth() + 1
+      const birthdaysData = (allProfiles ?? []).filter((p: { birth_date: string | null }) => {
+        if (!p.birth_date) return false
+        const month = new Date(p.birth_date).getUTCMonth() + 1
         return month === currentMonth
       })
 
@@ -97,7 +94,7 @@ export default function CalendarPage() {
       setLoading(false)
     }
 
-    fetchData()
+    fetchData().catch(() => setLoading(false))
   }, [userId, profile])
 
   if (loading || !profile || !userId) return null

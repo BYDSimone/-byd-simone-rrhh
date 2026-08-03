@@ -10,7 +10,6 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import type { BenefitBalance } from '@/lib/types'
 
-// ─── Types ───────────────────────────────────────────────────
 interface Employee {
   id:            string
   full_name:     string
@@ -35,7 +34,6 @@ interface Props {
 const CURRENT_YEAR = new Date().getFullYear()
 const YEAR_OPTIONS = [CURRENT_YEAR + 1, CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2]
 
-// ─── Main ─────────────────────────────────────────────────────
 export function BalancesClientPage({ employees, benefitTypes, initialBalances }: Props) {
   const supabase = createClient()
 
@@ -91,7 +89,6 @@ export function BalancesClientPage({ employees, benefitTypes, initialBalances }:
           benefit_type_id: data.benefit_type_id,
           year:            data.year,
           total_granted:   data.total_granted,
-          available:       data.total_granted - (editingBalance.used ?? 0) - (editingBalance.pending ?? 0),
           notes:           data.notes || null,
         })
         .eq('id', editingBalance.id)
@@ -121,7 +118,6 @@ export function BalancesClientPage({ employees, benefitTypes, initialBalances }:
           total_granted:   data.total_granted,
           used:            0,
           pending:         0,
-          available:       data.total_granted,
           notes:           data.notes || null,
         })
         .select('*')
@@ -157,7 +153,6 @@ export function BalancesClientPage({ employees, benefitTypes, initialBalances }:
   return (
     <div className="flex h-full min-h-screen">
 
-      {/* ── Columna izquierda: lista de empleados ── */}
       <div className="w-80 flex-shrink-0 border-r border-border bg-surface flex flex-col">
 
         <div className="p-4 border-b border-border">
@@ -233,7 +228,6 @@ export function BalancesClientPage({ employees, benefitTypes, initialBalances }:
         </div>
       </div>
 
-      {/* ── Panel derecho ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {!selectedEmployee ? (
@@ -431,7 +425,6 @@ export function BalancesClientPage({ employees, benefitTypes, initialBalances }:
   )
 }
 
-// ─── Balance Form Modal ───────────────────────────────────────
 function BalanceFormModal({
   benefitTypes,
   editingBalance,
